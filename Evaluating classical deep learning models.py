@@ -123,6 +123,100 @@ class NN3(nn.Module):
         x = self.dropout3(x)
         return self.out(x)
 
+
+# Define 1D CNN model
+class CNN1D(nn.Module):
+    def __init__(self, input_dim, num_classes=1, dropout_rate=0.3):
+        super(CNN1D, self).__init__()
+        self.conv1 = nn.Conv1d(in_channels=1, out_channels=32, kernel_size=3, padding=1)
+        self.bn1 = nn.BatchNorm1d(32)
+        self.pool1 = nn.MaxPool1d(kernel_size=2)
+        self.conv2 = nn.Conv1d(in_channels=32, out_channels=64, kernel_size=3, padding=1)
+        self.bn2 = nn.BatchNorm1d(64)
+        self.pool2 = nn.MaxPool1d(kernel_size=2)
+        self.conv3 = nn.Conv1d(in_channels=64, out_channels=128, kernel_size=3, padding=1)
+        self.bn3 = nn.BatchNorm1d(128)
+        self.pool3 = nn.MaxPool1d(kernel_size=2)
+        self.fc1 = nn.Linear(128 * (input_dim // 8), 64)  # Calculate the dimension after pooling
+        self.dropout = nn.Dropout(dropout_rate)
+        self.out = nn.Linear(64, num_classes)
+    
+    def forward(self, x):
+        x = x.unsqueeze(1)  # Add channel dimension, transform to [batch_size, 1, input_dim]
+        x = torch.relu(self.bn1(self.conv1(x)))
+        x = self.pool1(x)
+        x = torch.relu(self.bn2(self.conv2(x)))
+        x = self.pool2(x)
+        x = torch.relu(self.bn3(self.conv3(x)))
+        x = self.pool3(x)
+        x = x.view(x.size(0), -1)  # Flatten feature maps
+        x = torch.relu(self.fc1(x))
+        x = self.dropout(x)
+        return self.out(x)
+
+# Define standard RNN model
+class StandardRNNModel(nn.Module):
+    def __init__(self, input_dim, hidden_dim=64, num_layers=2, dropout_rate=0.3):
+        super(StandardRNNModel, self).__init__()
+        self.rnn = nn.RNN(input_size=input_dim, hidden_size=hidden_dim, num_layers=num_layers, batch_first=True, dropout=dropout_rate, nonlinearity='tanh')
+        self.fc = nn.Linear(hidden_dim, 64)
+        self.dropout = nn.Dropout(dropout_rate)
+        self.out = nn.Linear(64, 1)
+
+    def forward(self, x):
+        # Change input shape to (batch_size, seq_length=1, input_dim)
+        x = x.unsqueeze(1)  # Add a time dimension seq_length=1
+        x, _ = self.rnn(x)  # Output x shape is (batch_size, seq_length, hidden_dim)
+        x = x[:, -1, :]  # Select the output of the last time step
+        x = torch.relu(self.fc(x))
+        x = self.dropout(x)
+        return self.out(x)
+
+# Define LSTM model
+class LSTMModel(nn.Module):
+    def __init__(self, input_dim, hidden_dim=64, num_layers=2, dropout_rate=0.3):
+        super(LSTMModel, self).__init__()
+        self.lstm = nn.LSTM(input_size=input_dim, hidden_size=hidden_dim, num_layers=num_layers, batch_first=True, dropout=dropout_rate)
+        self.fc = nn.Linear(hidden_dim, 64)
+        self.dropout = nn.Dropout(dropout_rate)
+        self.out = nn.Linear(64, 1)
+
+    def forward(self, x):
+        x = x.unsqueeze(1)  # Add a time dimension seq_length=1
+        x, _ = self.lstm(x)  # x shape is (batch_size, seq_length, hidden_dim)
+        x = x[:, -1, :]  # Select the output of the last time step
+        x = torch.relu(self.fc(x))
+        x = self.dropout(x)
+        return self.out(x)
+
+# Define a simplified Transformer model
+class SimpleTransformer(nn.Module):
+    def __init__(self, input_dim, d_model=128, nhead=8, num_layers=2, dim_feedforward=256, dropout=0.1):
+        super(SimpleTransformer, self).__init__()
+        self.embedding = nn.Linear(input_dim, d_model)  # Input embedding layer, maps input dimension to d_model
+        encoder_layers = nn.TransformerEncoderLayer(d_model, nhead, dim_feedforward, dropout)
+        self.transformer_encoder = nn.TransformerEncoder(encoder_layers, num_layers)
+        self.fc1 = nn.Linear(d_model, 64)
+        self.dropout = nn.Dropout(dropout)
+        self.out = nn.Linear(64, 1)
+
+    def forward(self, x):
+        # x shape is (batch_size, input_dim) or (batch_size, seq_length, input_dim)
+        if x.dim() == 2:
+            x = x.unsqueeze(1)  # Add a time dimension, making x shape (batch_size, seq_length=1, input_dim)
+        
+        x = self.embedding(x)  # Map input to d_model dimension
+        x = x.permute(1, 0, 2)  # Transform to (seq_length, batch_size, d_model) for Transformer
+        x = self.transformer_encoder(x)
+        x = x.permute(1, 0, 2)  # Transform back to (batch_size, seq_length, d_model)
+        x = x[:, -1, :]  # Select the output of the last time step
+        x = torch.relu(self.fc1(x))
+        x = self.dropout(x)
+        return self.out(x)
+
+
+
+
 # Simple GNN Model Definition
 class SimpleGNN(nn.Module):
     def __init__(self, input_dim, hidden_dim=64, num_layers=2, dropout=0.3):
@@ -147,9 +241,9 @@ class SimpleGNN(nn.Module):
 
 def transform_to_graph_data(X_batch, y_batch):
     batch_size = X_batch.size(0)
-    num_nodes = X_batch.size(0)  # 每个样本被视为一个节点
-    edge_index = torch.combinations(torch.arange(num_nodes), r=2).t().contiguous()  # 全连接图
-    batch = torch.arange(batch_size, dtype=torch.long).repeat_interleave(1)  # 每个节点属于不同的图
+    num_nodes = X_batch.size(0)  
+    edge_index = torch.combinations(torch.arange(num_nodes), r=2).t().contiguous() 
+    batch = torch.arange(batch_size, dtype=torch.long).repeat_interleave(1)  
     data = Data(x=X_batch, edge_index=edge_index, y=y_batch, batch=batch)
     return data
 
@@ -270,6 +364,93 @@ def train_model_once_gnn(model, train_loader, test_loader, input_dim, num_epochs
             for epoch in range(len(results['train_loss'])):
                 f.write(f"{epoch+1}\t{results['train_loss'][epoch]:.6f}\t{results['test_loss'][epoch]:.6f}\t{results['test_r2'][epoch]:.6f}\t{results['learning_rate'][epoch] if use_scheduler else lr:.6f}\n")
 
+        return model_save_path, results['test_r2'][-1], total_training_time
+    else:
+        return None, results['test_r2'][-1], total_training_time
+
+
+def train_model_once(model, train_loader, test_loader, input_dim, num_epochs=50, lr=0.001, patience=10, save_base_path=None, use_scheduler=False):
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    model = model.to(device)
+    criterion = nn.MSELoss()
+    optimizer = optim.Adam(model.parameters(), lr=lr)
+    scheduler = None
+    if use_scheduler:
+        scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=5)
+
+    best_loss = float('inf')
+    patience_counter = 0
+    best_model_state = None
+    results = {'train_loss': [], 'test_loss': [], 'test_r2': [], 'learning_rate': []}
+
+    model_folder = os.path.join(save_base_path, model.__class__.__name__)
+    if not os.path.exists(model_folder):
+        os.makedirs(model_folder)
+
+    total_start_time = time.time()
+    epoch_iterator = tqdm(range(num_epochs), desc='Training Epochs', unit='epoch')
+    for epoch in epoch_iterator:
+        model.train()
+        train_loss = 0.0
+        train_loader_iter = tqdm(train_loader, desc=f"Epoch {epoch+1} Training", leave=False, unit='batch')
+        for X_batch, y_batch in train_loader_iter:
+            X_batch, y_batch = X_batch.to(device), y_batch.to(device)
+            optimizer.zero_grad()
+            outputs = model(X_batch)
+            loss = criterion(outputs, y_batch)
+            loss.backward()
+            optimizer.step()
+            train_loss += loss.item() * X_batch.size(0)
+        train_loss /= len(train_loader.dataset)
+        results['train_loss'].append(train_loss)
+
+        model.eval()
+        test_loss = 0.0
+        y_test_pred_list = []
+        y_test_list = []
+        test_loader_iter = tqdm(test_loader, desc=f"Epoch {epoch+1} Testing", leave=False, unit='batch')
+        with torch.no_grad():
+            for X_batch, y_batch in test_loader_iter:
+                X_batch, y_batch = X_batch.to(device), y_batch.to(device)
+                outputs = model(X_batch)
+                loss = criterion(outputs, y_batch)
+                test_loss += loss.item() * X_batch.size(0)
+                y_test_pred_list.append(outputs.cpu().numpy())
+                y_test_list.append(y_batch.cpu().numpy())
+        test_loss /= len(test_loader.dataset)
+        y_test_pred = np.concatenate(y_test_pred_list).ravel()
+        y_test = np.concatenate(y_test_list).ravel()
+        test_r2 = calculate_r2_oos(y_test, y_test_pred)
+        results['test_loss'].append(test_loss)
+        results['test_r2'].append(test_r2)
+
+        if scheduler:
+            current_lr = scheduler.optimizer.param_groups[0]['lr']
+            results['learning_rate'].append(current_lr)
+        epoch_iterator.set_postfix({'Train Loss': f"{train_loss:.6f}", 'Test Loss': f"{test_loss:.6f}", 'Test R²': f"{test_r2:.6f}", 'LR': current_lr if use_scheduler else lr})
+
+        if scheduler:
+            scheduler.step(test_loss)
+
+        if test_loss < best_loss:
+            best_loss = test_loss
+            patience_counter = 0
+            best_model_state = model.state_dict()
+        else:
+            patience_counter += 1
+            if patience_counter >= patience:
+                break
+
+    total_training_time = time.time() - total_start_time
+    if best_model_state:
+        model.load_state_dict(best_model_state)
+        model_save_path = os.path.join(model_folder, f"one_loop_best_model.pth")
+        torch.save(model.state_dict(), model_save_path)
+        history_save_path = os.path.join(model_folder, "one_loop_training_history.txt")
+        with open(history_save_path, 'w') as f:
+            f.write("Epoch\tTrain Loss\tTest Loss\tTest R²\tLR\n")
+            for epoch in range(len(results['train_loss'])):
+                f.write(f"{epoch+1}\t{results['train_loss'][epoch]:.6f}\t{results['test_loss'][epoch]:.6f}\t{results['test_r2'][epoch]:.6f}\t{results['learning_rate'][epoch] if use_scheduler else lr:.6f}\n")
         return model_save_path, results['test_r2'][-1], total_training_time
     else:
         return None, results['test_r2'][-1], total_training_time
