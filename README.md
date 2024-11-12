@@ -28,24 +28,37 @@ Data from 1987 to 2016, containing 2,494,491 data points for out-of-sample testi
 ### Machine Learning Models
 
 For classical machine learning models, we utilized the highly compatible and widely adopted scikit-learn library to perform regression training. The models were fine-tuned using hyperparameter optimization:
+
 Hyperparameter Tuning: Random Search was applied to select the best hyperparameters. We performed 10 iterations (n_iter=10), with each iteration sampling a different parameter combination and conducting 5-fold cross-validation.
+
 Evaluation Metric: Negative Mean Squared Error (negative MSE) was used as the optimization criterion.
+
 Performance Metrics: After training, we reported the out-of-sample test MSE and R².
 
 ### Deep Learning Models
 
 For deep learning models, we used PyTorch, one of the most popular frameworks for building and training models. Each model followed a consistent configuration:
+
 Loss Function: Mean Squared Error (MSE)
+
 Optimizer: Adam optimizer
-Learning Rate Scheduler: Fixed learning rate of 0.01
+
+Learning Rate Scheduler: Fixed learning rate
+
 Maximum Training Epochs: 50
+
 Early Stopping: Patience of 10 epochs
+
 Batch Size: 32
+
 Performance Metrics: After training, we reported the out-of-sample test MSE and R².
 
 ### Repository Contents
 
 quantplus data processing.py: Code for data preprocessing, handling missing values, and constructing the dataset
+
 Evaluating classical machine learning models.py: Machine learning model training scripts using scikit-learn.
+
 Evaluating classical deep learning models.py: Deep learning model training scripts using PyTorch.
+
 README.md: This file, providing an overview of the project, data, and model training.
